@@ -5,31 +5,38 @@ import time
 import json
 from soittilaconf import c as config
 from influxdb import InfluxDBClient
+import logging
 
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code "+str(rc))
-    client.subscribe[("home/sensor/raspi/#",1),("home/ykmakuuhuone/#",1)]
+    logging.info("Connected with result code "+str(rc))
+    client.subscribe([("home/sensor/raspi/#",1),("home/ykmakuuhuone/#",1)])
 
 def on_message(client, userdata, msg):
-    print("Received a message on topic: " + msg.topic)
-    # Use utc as timestamp
-    receiveTime=datetime.datetime.utcnow()
-    message=json.loads(msg.payload.decode("utf-8"))
-    isfloatValue=False
-    measurement=msg.topic.split('/raspi/')[1].split('/')[0]
-    #print(message)
-    #print(message["Temp"])
     try:
+      logging.info("Received a message on topic: " + msg.topic)
+      # Use utc as timestamp
+      receiveTime=datetime.datetime.utcnow()
+      message=json.loads(msg.payload.decode("utf-8"))
+      isfloatValue=False
+      if msg.topic == 'home/ykmakuuhuone/sensor':
+        _message = json.loads(msg.payload)
+        measurement = 'ykmakuuhuoneHumi'
+        val = round(float(_message['Humidity']),2)
+        isfloatValue=True
+      else:
+        measurement=msg.topic.split('/raspi/')[1].split('/')[0]
+        #print(message)
+        #print(message["Temp"])
         # Convert the string to a float so that it is stored as a number and not a string in the database
-        val = float(message["Temp"])
+        val = round(float(message["Temp"]),2)
         #print("Value:"+str(val))
         isfloatValue=True
     except:
-        print("Could not convert " + measurement + " to a float value")
+        logging.info("Could not convert " + measurement + " to a float value")
         isfloatValue=False
 
     if isfloatValue:
-        print(str(receiveTime) + ": " + msg.topic + " " + str(val))
+        logging.info(str(receiveTime) + ": " + msg.topic + " " + str(val))
 
         json_body = [
             {
@@ -42,7 +49,7 @@ def on_message(client, userdata, msg):
         ]
 
         dbclient.write_points(json_body)
-        print("Finished writing to InfluxDB")
+        logging.info("Finished writing to InfluxDB")
 
 # Set up a client for InfluxDB
 dbclient = InfluxDBClient(config['influxDBServer'], 8086, config['influxDBUser'], config['influxDBPassword'], config['influxDBdatabase'])
@@ -55,9 +62,11 @@ client.on_connect = on_connect
 client.on_message = on_message
 connOK=False
 while(connOK == False):
+    logging.info('trying to connect')
     try:
         client.connect(config['mqttServer'], 1883, 60)
         connOK = True
+        logging.info('Connected')
     except:
         connOK = False
     time.sleep(2)
