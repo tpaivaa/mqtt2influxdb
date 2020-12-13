@@ -2,7 +2,7 @@
 Stores dato to influxdb on Soittila
 
 # on root folder create soittilaconf.py with following and right content
-´´´
+```
 c  = {
   'mqttServer': '',
   'mqttUser': '',
@@ -12,5 +12,4 @@ c  = {
   'influxDBPassword': '',
   'influxDBdatabase': ''
 }
-
-´´´
+```
